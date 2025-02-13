@@ -13,3 +13,7 @@ Used bedtools to transfer from bed narrowPeak	to fasta format
 hg38 fasta download
 Genome assembly GRCh38
 https://www.gungorbudak.com/blog/2018/05/16/how-to-download-hg38-grch38-fasta-human-reference-genome/
+
+## DNApi
+https://pubmed.ncbi.nlm.nih.gov/27736901/
+https://github.com/jnktsj/DNApi
