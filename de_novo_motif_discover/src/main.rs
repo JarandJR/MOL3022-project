@@ -4,7 +4,7 @@ use std::io::{self, BufRead, BufReader, Write};
 fn main() -> io::Result<()> {
     let n = 1_000_000;
     let formatted = format_with_underscores(n / 2);
-    let input_path = "../CREB1_K562_ChIPseq_62_000_000.fasta";
+    let input_path = "../CREB1_K562_ChIPseq_31_300_055.fasta";
     let output_path = format!("../CREB1_K562_ChIPseq_{}.fasta", formatted);
     
     let input_file = File::open(input_path)?;
