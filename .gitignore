@@ -1,2 +1,36 @@
-*/target
+# Rust target directory
+target/
+
+# Cargo files
+**/Cargo.lock
+**/Cargo.toml.orig
+
+# Build artifacts
+debug/
+release/
+
+# Rust analyzer files
+*.rs.bk
+/.vscode/
+.idea/
+*.iml
+
+# Temporary files
+*.log
+*.tmp
+*.swp
+*.swo
+.DS_Store
+
+# Binary files
+*.exe
+*.dll
+*.dylib
+*.so
+
+# Coverage & debugging
+coverage/
+*.profraw
+
+# Dataset
 *.fasta
