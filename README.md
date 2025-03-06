@@ -17,3 +17,18 @@ https://www.gungorbudak.com/blog/2018/05/16/how-to-download-hg38-grch38-fasta-hu
 ## DNApi
 https://pubmed.ncbi.nlm.nih.gov/27736901/
 https://github.com/jnktsj/DNApi
+
+
+# Dataset
+https://www.encodeproject.org/experiments/ENCSR000BSO/
+
+Homo Sapiens
+
+Target: CREB1 (TF)
+
+Sample: K562 (Blood canser cells, leukemia)
+
+# Fasit
+Jaspar: https://jaspar.elixir.no/matrix/MA0018.5/
+
+For accuracy comparison :) 
