@@ -1,37 +1,67 @@
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, Write};
+use clap::{Arg, Command};
+use de_novo_motif_discover::{
+    methods::SupportedMethods,
+    motif::{gibbs_sampling::GibbsSampling, seq_logo::generate_sequence_logo},
+    parser::parse,
+};
 
-fn main() -> io::Result<()> {
-    let n = 159_088;
-    let formatted = format_with_underscores(n / 2);
-    let input_path = "../data/CREB1_K562_ChIPseq_31_300_055.fasta";
-    let output_path = format!("../data/CREB1_K562_ChIPseq_{}.fasta", formatted);
-    
-    let input_file = File::open(input_path)?;
-    let reader = BufReader::new(input_file);
-    let mut output_file = File::create(output_path.as_str())?;
-    
-    for (i, line) in reader.lines().enumerate() {
-        if i >= n {
-            break;
-        }
-        writeln!(output_file, "{}", line?)?;
-    }
-    
-    println!("Successfully written first {} lines to {}",n, output_path);
-    Ok(())
-}
+fn main() {
+    let matches = Command::new("Motif Discovery")
+        .version("1.0")
+        .author("Your Name")
+        .about("Implements Gibbs Sampler and Expectation Maximization for motif discovery")
+        .arg(
+            Arg::new("method")
+                .short('m')
+                .long("method")
+                //.required(true)
+                .default_value("gibbs") // Remove this later
+                .value_parser(["gibbs", "em"])
+                .help("Choose the algorithm: Gibbs sampler or expectation-maximization"),
+        )
+        .arg(
+            Arg::new("path")
+                .short('p')
+                .long("path")
+                //.required(true)
+                .default_value("../data/CREB1_K562_ChIPseq_79_544.fasta") // Remove this later
+                .help("Path to the sequence data file"),
+        )
+        .arg(
+            Arg::new("kmer_length")
+                .short('k')
+                .long("kmer_length")
+                .default_value("8")
+                .value_parser(clap::value_parser!(usize))
+                .help("Length of the motif to discover (default: 8)"),
+        )
+        .arg(
+            Arg::new("seqlogo")
+                .long("logo")
+                .action(clap::ArgAction::SetTrue)
+                .help("Generate a sequence logo"),
+        )
+        .get_matches();
 
-fn format_with_underscores(n: usize) -> String {
-    let num_str = n.to_string();
-    let mut result = String::new();
-    let len = num_str.len();
-    
-    for (i, c) in num_str.chars().enumerate() {
-        if i > 0 && (len - i) % 3 == 0 {
-            result.push('_');
-        }
-        result.push(c);
+    let method =
+        Into::<SupportedMethods>::into(matches.get_one::<String>("method").unwrap().as_str());
+    let k = *matches.get_one::<usize>("kmer_length").unwrap();
+    let path = matches.get_one::<String>("path").unwrap();
+    let seqlogo = matches.get_flag("seqlogo");
+    // Debug, change this later
+    println!("Method: {:?}", method);
+    println!("Motif length: {}", k);
+    println!("File path: {}", path);
+    println!("Generate sequence logo: {}", seqlogo);
+
+    let seqs = parse(path);
+    let pwm = match method {
+        SupportedMethods::Gibbs => GibbsSampling::find(k, seqs),
+        SupportedMethods::EM => panic!("not implemented"),
+        _ => panic!("Unsupported method"),
+    };
+
+    if seqlogo {
+        generate_sequence_logo(pwm);
     }
-    result
 }
