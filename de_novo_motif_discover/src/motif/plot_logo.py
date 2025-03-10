@@ -14,7 +14,7 @@ def plot_logo(pwm_json):
     crp_logo.style_spines(visible=False)
     crp_logo.style_spines(spines=['left', 'bottom'], visible=True)
     crp_logo.style_xticks(rotation=90, fmt='%d', anchor=0)
-    crp_logo.ax.set_ylabel("$-\Delta \Delta G$ (kcal/mol)", labelpad=-1)
+    crp_logo.ax.set_ylabel("Position Weight Matrix Weights", labelpad=-1)
     crp_logo.ax.xaxis.set_ticks_position('none')
     crp_logo.ax.xaxis.set_tick_params(pad=-1)
     

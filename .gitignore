@@ -34,3 +34,6 @@ coverage/
 
 # Dataset
 *.fasta
+
+# Results
+*.png
