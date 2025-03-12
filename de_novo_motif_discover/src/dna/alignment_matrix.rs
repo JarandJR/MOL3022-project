@@ -37,9 +37,11 @@ impl<'a> Debug for AlignmentMatrix<'a> {
                 let max = self.seqs[i].len() - self.kmer;
                 write!(
                     f,
-                    "{}{}\n",
+                    "{}{}{}{}\n",
                     " ".repeat(max - a),
+                    &self.seqs[i][0..*a].to_lowercase(),
                     &self.seqs[i][*a..a + self.kmer],
+                    &self.seqs[i][a + self.kmer..].to_lowercase(),
                 )
             })
             .collect()
