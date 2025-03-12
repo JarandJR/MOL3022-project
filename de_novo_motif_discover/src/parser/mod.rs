@@ -2,13 +2,13 @@ use std::{fs::read_to_string, path::Path};
 
 use fasta::FastaSeq;
 
-use crate::filetypes::SupportedFiletypes;
+use crate::{dna::nucleotide::NucletideCounts, filetypes::SupportedFiletypes};
 
 pub mod fasta;
 
 pub type Sequence = String;
 
-pub fn parse(path: &str) -> Vec<Sequence> {
+pub fn parse(path: &str) -> (Vec<Sequence>, NucletideCounts) {
     let file_type = Into::<SupportedFiletypes>::into(
         Path::new(path)
             .extension()

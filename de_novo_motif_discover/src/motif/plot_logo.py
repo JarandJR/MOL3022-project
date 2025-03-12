@@ -6,7 +6,7 @@ import sys
 import json
 import datetime
 
-def plot_logo(pwm_json):
+def plot_logo(pwm_json, filename):
     pwm = np.array(json.loads(pwm_json))
     df = pd.DataFrame(pwm.T, columns=["A", "C", "G", "T"])
 
@@ -25,7 +25,7 @@ def plot_logo(pwm_json):
     crp_logo.ax.set_xticklabels([str(i+1) for i in range(num_positions)])
 
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"results/sequence_logo_{timestamp}.png"
+    filename = f"results/{filename}_sequence_logo_{timestamp}.png"
     
     plt.savefig(filename)
     print(f"Saved the logo as {filename}")
@@ -36,4 +36,5 @@ if __name__ == "__main__":
         print("Usage: python plot_logo.py '<pwm_json>'")
         sys.exit(1)
     pwm_json = sys.argv[1]
-    plot_logo(pwm_json)
+    filename = sys.argv[2]
+    plot_logo(pwm_json, filename)

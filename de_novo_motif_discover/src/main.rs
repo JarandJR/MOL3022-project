@@ -38,6 +38,7 @@ fn main() {
         .arg(
             Arg::new("seqlogo")
                 .long("logo")
+                .short('l')
                 .action(clap::ArgAction::SetTrue)
                 .help("Generate a sequence logo"),
         )
@@ -54,14 +55,15 @@ fn main() {
     println!("File path: {}", path);
     println!("Generate sequence logo: {}", seqlogo);
 
-    let seqs = parse(path);
-    let pwm = match method {
-        SupportedMethods::Gibbs => GibbsSampling::find(k, seqs),
-        SupportedMethods::EM => panic!("not implemented"),
+    let (seqs, nc) = parse(path);
+    let pwm = match &method {
+        &SupportedMethods::Gibbs => GibbsSampling::new(dbg!(nc), k, &seqs).discover().pwm(),
+        &SupportedMethods::EM => panic!("not implemented"),
         _ => panic!("Unsupported method"),
     };
 
     if seqlogo {
-        generate_sequence_logo(pwm);
+        //pwms.iter().for_each(|pwm| generate_sequence_logo(pwm, &method));
+        generate_sequence_logo(&pwm, &method);
     }
 }
