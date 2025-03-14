@@ -2,7 +2,7 @@ use std::{fs::read_to_string, path::Path};
 
 use fasta::FastaSeq;
 
-use crate::{dna::nucleotide::NucletideCounts, filetypes::SupportedFiletypes};
+use crate::{dna::nucleotide_count::NucletideCounts, filetypes::SupportedFiletypes};
 
 pub mod fasta;
 

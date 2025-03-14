@@ -18,7 +18,7 @@ def plot_logo(pwm_json, filename):
     crp_logo.ax.xaxis.set_ticks_position('none')
     crp_logo.ax.xaxis.set_tick_params(pad=-1)
     
-    crp_logo.ax.set_ylim(0, 1)
+    crp_logo.ax.set_ylim(0, 2)
     
     num_positions = df.shape[0]
     crp_logo.ax.set_xticks(range(num_positions))

@@ -1,52 +1,169 @@
+use rand::Rng;
+
 use crate::{
-    dna::{alignment_matrix::AlignmentMatrix, nucleotide::NucletideCounts},
+    dna::{
+        alignment_matrix::AlignmentMatrix, nucleotide::Nucleotide,
+        nucleotide_count::NucletideCounts, position_specific_counts::PositionFrequencyMatrix,
+    },
     parser::Sequence,
 };
 
 use super::pwm::PositionWeightMatrix;
 
-type PositionSpecificCounts = [Vec<usize>; 4];
-
 pub struct GibbsSampling<'a> {
-    // Position-Specific Count Matrix
-    pscm: PositionSpecificCounts,
+    // Position Frequency Matrix
+    pfm: PositionFrequencyMatrix,
     // Alignment matrix
     alnmtx: AlignmentMatrix<'a>,
     // Background count
     bc: NucletideCounts,
-    // Nucleotide count
-    nc: NucletideCounts,
     // Sequences
     seqs: &'a Vec<Sequence>,
 }
 
 impl<'a> GibbsSampling<'a> {
     pub fn new(nc: NucletideCounts, k: usize, seqs: &'a Vec<Sequence>) -> Self {
-        const REPEAT_VALUE: Vec<usize> = Vec::new();
-        let pscm = [REPEAT_VALUE; 4];
         let alnmtx = AlignmentMatrix::new_random(k, seqs);
-        let bc = NucletideCounts::default();
+        let psc = PositionFrequencyMatrix::new(k, &alnmtx);
+        let bc = psc
+            .sum_matrix()
+            .iter()
+            .zip(nc.iter())
+            .map(|(nc, tot)| tot - nc)
+            .collect::<Vec<_>>()
+            .into();
         Self {
-            pscm,
+            pfm: psc,
             alnmtx,
             bc,
-            nc,
             seqs,
         }
     }
 
-    pub fn discover(&mut self) -> &Self {
-        //seqs.iter().for_each(|s| println!("{}", s));
-        let max_iterations = 1; //_000_000;
+    pub fn discover(&mut self, max_iterations: usize) -> &Self {
+        let mut prev_score = self.score();
+        let mut rng = rand::rng();
         for it in 0..max_iterations {
-            println!("Iteration: {it}");
-            dbg!(&self.alnmtx);
+            println!("iteration: {}", it);
+            let mut order = (0..self.seqs.len()).collect::<Vec<_>>();
+            while !order.is_empty() {
+                let idx_order = rng.random_range(0..order.len());
+                let idx_seq = order.remove(idx_order);
+                // Take out the current motif
+                let motif = self.alnmtx.motif(idx_seq);
+                self.bc.add_motif(motif, 1);
+                self.pfm.add_motif(motif, -1);
+                // Probability-score for all motifs from current sequence
+                let seq = &self.seqs[idx_seq];
+                let motifs = (0..=seq.len() - self.kmer())
+                    .map(|start_pos| seq[start_pos..start_pos + self.kmer()].to_owned())
+                    .collect::<Vec<Sequence>>();
+                let ppm = self.position_probability_matrix();
+                let bgf = self.background_frequency().collect::<Vec<_>>();
+                let ps = motifs
+                    .iter()
+                    .map(|m| {
+                        m.chars().enumerate().fold(1., |acc, (i, c)| {
+                            if c != 'N' {
+                                let probability = ppm[Into::<usize>::into(Nucleotide::from(c))][i]
+                                    / bgf[Into::<usize>::into(Nucleotide::from(c))];
+                                return acc * probability;
+                            }
+                            acc
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let sum_ps = ps.iter().sum::<f64>();
+                let norm_ps = ps.iter().map(|s| s / sum_ps).collect::<Vec<_>>();
+                let roll = rng.random_range(0.0..1.);
+                // Stochastically determine a new position for the motif
+                let mut cumulative_sum = 0.0;
+                let new_start_pos = norm_ps
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, ps)| {
+                        cumulative_sum += ps;
+                        cumulative_sum.ge(&roll).then_some(i)
+                    })
+                    .unwrap_or(norm_ps.len() - 1);
+                // Update alignment matrix
+                self.alnmtx.update_pos(idx_seq, new_start_pos);
+                // Add new motif
+                let new_motif = self.alnmtx.motif(idx_seq);
+                self.bc.add_motif(new_motif, -1);
+                self.pfm.add_motif(new_motif, 1);
+            }
+            // TODO, some treshold thing
+            let new_score = dbg!(self.score());
+            if new_score < prev_score {
+                //break;
+            }
+            prev_score = new_score;
         }
+        println!("Finished: {:?}", self.alnmtx);
         self
     }
 
+    fn score(&self) -> f64 {
+        let pwm = self.pwm();
+        self.pfm
+            .iter()
+            .zip(pwm.iter())
+            .map(|(counts, weights)| {
+                counts
+                    .iter()
+                    .zip(weights)
+                    .map(|(c, w)| *c as f64 * w)
+                    .sum::<f64>()
+            })
+            .sum()
+    }
+
+    fn background_frequency(&self) -> impl Iterator<Item = f64> + '_ {
+        let tot = self.bc.iter().sum::<usize>() as f64;
+        self.bc.iter().map(move |c| *c as f64 / tot)
+    }
+
+    fn kmer(&self) -> usize {
+        self.alnmtx.kmer
+    }
+
+    fn remove_motif(&mut self, m: &str) {
+        self.bc.add_motif(m, 1);
+        self.pfm.add_motif(m, -1);
+    }
+
+    fn position_probability_matrix(&self) -> Vec<Vec<f64>> {
+        let pseudocount = 0.0001;
+        let total = self.seqs.len() as f64 + 4. * pseudocount;
+        self.pfm
+            .iter()
+            .map(|nuc_counts| {
+                nuc_counts
+                    .iter()
+                    .map(|count| (*count as f64 + pseudocount) / total)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<Vec<_>>>()
+    }
+
     pub fn pwm(&self) -> PositionWeightMatrix {
-        // Testdata
-        PositionWeightMatrix::default()
+        let pseudocount = 0.0001;
+        let total = self.seqs.len() as f64 + 4. * pseudocount;
+        self.pfm
+            .iter()
+            .zip(self.background_frequency())
+            .map(|(nuc_counts, bgf)| {
+                nuc_counts
+                    .iter()
+                    .map(|count| {
+                        let pos_probability = (*count as f64 + pseudocount) / total;
+                        let pos_weight = pos_probability / bgf;
+                        pos_weight.log2()
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<Vec<_>>>()
+            .into()
     }
 }

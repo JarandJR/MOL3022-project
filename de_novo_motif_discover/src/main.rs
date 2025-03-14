@@ -57,7 +57,7 @@ fn main() {
 
     let (seqs, nc) = parse(path);
     let pwm = match &method {
-        &SupportedMethods::Gibbs => GibbsSampling::new(dbg!(nc), k, &seqs).discover().pwm(),
+        &SupportedMethods::Gibbs => GibbsSampling::new(nc, k, &seqs).discover(100).pwm(),
         &SupportedMethods::EM => panic!("not implemented"),
         _ => panic!("Unsupported method"),
     };

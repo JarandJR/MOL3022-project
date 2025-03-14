@@ -1,5 +1,5 @@
 use super::Sequence;
-use crate::dna::nucleotide::NucletideCounts;
+use crate::dna::nucleotide_count::NucletideCounts;
 
 pub struct FastaSeq;
 
