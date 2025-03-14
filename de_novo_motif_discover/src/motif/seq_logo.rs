@@ -5,6 +5,7 @@ use crate::methods::SupportedMethods;
 use super::pwm::PositionWeightMatrix;
 
 pub fn generate_sequence_logo(pwm: &PositionWeightMatrix, method: &SupportedMethods) {
+    println!("Generating Sequence logo..");
     let pwm_json = pwm.as_json();
     let output = Command::new("python")
         .arg("src/motif/plot_logo.py")
@@ -13,7 +14,6 @@ pub fn generate_sequence_logo(pwm: &PositionWeightMatrix, method: &SupportedMeth
         .output()
         .expect("Failed to execute Python script");
 
-    println!("Generating Sequence logo..");
     if output.status.success() {
         println!("Sequence logo generated successfully!");
     } else {

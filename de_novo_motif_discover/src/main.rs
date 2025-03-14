@@ -8,14 +8,13 @@ use de_novo_motif_discover::{
 fn main() {
     let matches = Command::new("Motif Discovery")
         .version("1.0")
-        .author("Your Name")
+        .author("Jarand Romestrand")
         .about("Implements Gibbs Sampler and Expectation Maximization for motif discovery")
         .arg(
             Arg::new("method")
                 .short('m')
                 .long("method")
-                //.required(true)
-                .default_value("gibbs") // Remove this later
+                .required(true)
                 .value_parser(["gibbs", "em"])
                 .help("Choose the algorithm: Gibbs sampler or expectation-maximization"),
         )
@@ -23,8 +22,7 @@ fn main() {
             Arg::new("path")
                 .short('p')
                 .long("path")
-                //.required(true)
-                .default_value("../data/CREB1_K562_ChIPseq_79_544.fasta") // Remove this later
+                .required(true)
                 .help("Path to the sequence data file"),
         )
         .arg(
@@ -42,23 +40,63 @@ fn main() {
                 .action(clap::ArgAction::SetTrue)
                 .help("Generate a sequence logo"),
         )
+        .arg(
+            Arg::new("treshold")
+                .long("treshold")
+                .short('t')
+                .default_value("0.005")
+                .value_parser(clap::value_parser!(f64))
+                .help("Treshold for convergence (default: 0.005)"),
+        )
+        .arg(
+            Arg::new("max_iter")
+                .long("max_iter")
+                .short('i')
+                .default_value("100")
+                .value_parser(clap::value_parser!(usize))
+                .help("Max iterations for motif discover (default: 100)"),
+        )
+        .arg(
+            Arg::new("debug")
+                .long("debug")
+                .short('d')
+                .action(clap::ArgAction::SetTrue)
+                .help("Debug when running"),
+        )
+        .arg(
+            Arg::new("align")
+                .long("align")
+                .short('a')
+                .action(clap::ArgAction::SetTrue)
+                .help("Print final alignment"),
+        )
         .get_matches();
 
     let method =
         Into::<SupportedMethods>::into(matches.get_one::<String>("method").unwrap().as_str());
-    let k = *matches.get_one::<usize>("kmer_length").unwrap();
+    let kmer = *matches.get_one::<usize>("kmer_length").unwrap();
     let path = matches.get_one::<String>("path").unwrap();
     let seqlogo = matches.get_flag("seqlogo");
+    let print_align = matches.get_flag("align");
+    let debug = matches.get_flag("debug");
+    let treshold = *matches.get_one::<f64>("treshold").unwrap();
+    let max_iter = *matches.get_one::<usize>("max_iter").unwrap();
 
-    println!("Method: {:?}", method);
-    println!("Motif length: {}", k);
     println!("File path: {}", path);
+    println!("Method: {:?}", method);
+    println!("Motif length: {}", kmer);
+    println!("Treshold for convergence: {}", treshold);
+    println!("Maximum number of iterations: {}", max_iter);
     println!("Generate sequence logo: {}", seqlogo);
+    println!("Print the final alignement: {}", print_align);
+    println!("Debug: {}\n", debug);
 
     let (seqs, nc) = parse(path);
     let start = std::time::Instant::now();
     let pwm = match &method {
-        &SupportedMethods::Gibbs => GibbsSampling::new(nc, k, &seqs).discover(100).pwm(),
+        &SupportedMethods::Gibbs => {
+            GibbsSampling::new(nc, kmer, &seqs).discover(max_iter, treshold, debug, print_align)
+        }
         &SupportedMethods::EM => panic!("not implemented"),
         _ => panic!("Unsupported method"),
     };
