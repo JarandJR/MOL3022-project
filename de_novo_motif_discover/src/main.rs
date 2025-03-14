@@ -49,21 +49,24 @@ fn main() {
     let k = *matches.get_one::<usize>("kmer_length").unwrap();
     let path = matches.get_one::<String>("path").unwrap();
     let seqlogo = matches.get_flag("seqlogo");
-    // Debug, change this later
+
     println!("Method: {:?}", method);
     println!("Motif length: {}", k);
     println!("File path: {}", path);
     println!("Generate sequence logo: {}", seqlogo);
 
     let (seqs, nc) = parse(path);
+    let start = std::time::Instant::now();
     let pwm = match &method {
         &SupportedMethods::Gibbs => GibbsSampling::new(nc, k, &seqs).discover(100).pwm(),
         &SupportedMethods::EM => panic!("not implemented"),
         _ => panic!("Unsupported method"),
     };
+    let duration = start.elapsed();
+    println!("Time taken: {:?}", duration);
 
     if seqlogo {
-        //pwms.iter().for_each(|pwm| generate_sequence_logo(pwm, &method));
+        println!("{:?}", pwm);
         generate_sequence_logo(&pwm, &method);
     }
 }

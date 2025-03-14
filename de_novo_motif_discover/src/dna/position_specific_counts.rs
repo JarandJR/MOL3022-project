@@ -11,22 +11,20 @@ pub struct PositionFrequencyMatrix {
 
 impl PositionFrequencyMatrix {
     pub fn new(kmer: usize, alnmtx: &AlignmentMatrix) -> Self {
-        let psc =
-            alnmtx
-                .iter()
-                .enumerate()
-                .fold(vec![vec![0; kmer]; 4], |mut acc, (idx_seq, i)| {
-                    alnmtx
-                        .motif(idx_seq)
-                        .chars()
-                        .enumerate()
-                        .for_each(|(i, c)| {
-                            if c != 'N' {
-                                acc[Into::<usize>::into(Nucleotide::from(c))][i] += 1
-                            }
-                        });
-                    acc
-                });
+        let psc = alnmtx
+            .iter()
+            .fold(vec![vec![0; kmer]; 4], |mut acc, idx_seq| {
+                alnmtx
+                    .motif(*idx_seq)
+                    .chars()
+                    .enumerate()
+                    .for_each(|(i, c)| {
+                        if c != 'N' {
+                            acc[Into::<usize>::into(Nucleotide::from(c))][i] += 1
+                        }
+                    });
+                acc
+            });
         Self { psc }
     }
 

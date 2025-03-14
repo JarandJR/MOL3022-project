@@ -49,19 +49,21 @@ impl<'a> GibbsSampling<'a> {
             while !order.is_empty() {
                 let idx_order = rng.random_range(0..order.len());
                 let idx_seq = order.remove(idx_order);
-                // Take out the current motif
+                let seq = &self.seqs[idx_seq];
+
+                // Take out the current motif for prediction
                 let motif = self.alnmtx.motif(idx_seq);
                 self.bc.add_motif(motif, 1);
                 self.pfm.add_motif(motif, -1);
-                // Probability-score for all motifs from current sequence
-                let seq = &self.seqs[idx_seq];
-                let motifs = (0..=seq.len() - self.kmer())
-                    .map(|start_pos| seq[start_pos..start_pos + self.kmer()].to_owned())
-                    .collect::<Vec<Sequence>>();
+
                 let ppm = self.position_probability_matrix();
                 let bgf = self.background_frequency().collect::<Vec<_>>();
-                let ps = motifs
-                    .iter()
+
+                // Calculate the probability-score for all possible motif starting positions
+                let ps = (0..=seq.len() - self.kmer())
+                    // Motifs
+                    .map(|start_pos| &seq[start_pos..start_pos + self.kmer()])
+                    // Probability score
                     .map(|m| {
                         m.chars().enumerate().fold(1., |acc, (i, c)| {
                             if c != 'N' {
@@ -73,11 +75,14 @@ impl<'a> GibbsSampling<'a> {
                         })
                     })
                     .collect::<Vec<_>>();
+
+                // Normalize the probability-scores
                 let sum_ps = ps.iter().sum::<f64>();
                 let norm_ps = ps.iter().map(|s| s / sum_ps).collect::<Vec<_>>();
-                let roll = rng.random_range(0.0..1.);
-                // Stochastically determine a new position for the motif
+
+                // Stochastically determine a new starting position for the motif
                 let mut cumulative_sum = 0.0;
+                let roll = rng.random_range(0.0..1.);
                 let new_start_pos = norm_ps
                     .iter()
                     .enumerate()
@@ -86,21 +91,20 @@ impl<'a> GibbsSampling<'a> {
                         cumulative_sum.ge(&roll).then_some(i)
                     })
                     .unwrap_or(norm_ps.len() - 1);
-                // Update alignment matrix
+
+                // Update alignment matrix and add new motif to frequency matrix
                 self.alnmtx.update_pos(idx_seq, new_start_pos);
-                // Add new motif
                 let new_motif = self.alnmtx.motif(idx_seq);
                 self.bc.add_motif(new_motif, -1);
                 self.pfm.add_motif(new_motif, 1);
             }
-            // TODO, some treshold thing
+            // TODO, some treshold thing, huge boost in comp time
             let new_score = dbg!(self.score());
             if new_score < prev_score {
                 //break;
             }
             prev_score = new_score;
         }
-        println!("Finished: {:?}", self.alnmtx);
         self
     }
 
@@ -126,11 +130,6 @@ impl<'a> GibbsSampling<'a> {
 
     fn kmer(&self) -> usize {
         self.alnmtx.kmer
-    }
-
-    fn remove_motif(&mut self, m: &str) {
-        self.bc.add_motif(m, 1);
-        self.pfm.add_motif(m, -1);
     }
 
     fn position_probability_matrix(&self) -> Vec<Vec<f64>> {
