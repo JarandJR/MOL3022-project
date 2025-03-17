@@ -127,16 +127,6 @@ cargo run --release -- -h
 
 This will show the help information, including all options and their descriptions.
 
-## Test Dataset
-
-The test dataset used for development and can be used for testing by you aswell in the ``data` folder is gathered from: https://www.encodeproject.org/experiments/ENCSR000BSO/
-
-The dataset contains sequencing data from the species Homo Sapiens
-
-Target: CREB1 (TF)
-
-Sample: K562 (Blood canser cells, leukemia)
-
 ## **Test Dataset**
 
 The test dataset used for development, which is available in the `data` folder, was sourced from the [ENCODE Project](https://www.encodeproject.org/) under **ChIP-seq experiments**.
