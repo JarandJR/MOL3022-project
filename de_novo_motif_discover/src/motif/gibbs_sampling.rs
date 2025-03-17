@@ -22,6 +22,7 @@ pub struct GibbsSampling<'a> {
 }
 
 impl<'a> GibbsSampling<'a> {
+    /// Initializes the frequencies for sampling
     pub fn new(nc: NucletideCounts, k: usize, seqs: &'a Vec<Sequence>) -> Self {
         let alnmtx = AlignmentMatrix::new_random(k, seqs);
         let pfm = PositionFrequencyMatrix::new(k, &alnmtx);
@@ -40,12 +41,11 @@ impl<'a> GibbsSampling<'a> {
         }
     }
 
-    pub fn discover(
+    pub fn discover_motif(
         &mut self,
         max_iterations: usize,
-        treshold: f64,
+        convergence_treshold: f64,
         debug: bool,
-        print_align: bool,
     ) -> PositionWeightMatrix {
         let mut max_score = self.score();
         let mut prev_scores = Vec::new();
@@ -56,13 +56,14 @@ impl<'a> GibbsSampling<'a> {
 
         for it in 0..max_iterations {
             debug.then(|| println!("\nIteration: {}", it));
+            // Random order of all sequences
             let mut order = (0..self.seqs.len()).collect::<Vec<_>>();
             while !order.is_empty() {
                 let idx_order = rng.random_range(0..order.len());
                 let idx_seq = order.remove(idx_order);
                 let seq = self.seqs[idx_seq].as_str();
 
-                // Take out the current motif for prediction
+                // Take out the current motif from the frequency matrix for prediction of new starting position
                 let motif = self.alnmtx.motif(idx_seq);
                 self.bgf.add_motif(motif, 1);
                 self.pfm.add_motif(motif, -1);
@@ -102,24 +103,26 @@ impl<'a> GibbsSampling<'a> {
             }
             let new_score = self.score();
             debug.then(|| println!("Score: {}", new_score));
+            // Update the alignment
             if max_score < new_score {
                 max_score = new_score;
                 max_pwm = self.pwm().collect::<Vec<Vec<_>>>().into();
                 continue;
             }
+            // Check for convergence
             prev_scores.push(new_score);
             let mean = prev_scores.iter().sum::<f64>() / prev_scores.len() as f64;
             let relative_imp = (max_score - mean).abs() / mean;
-            if relative_imp < treshold {
+            if relative_imp < convergence_treshold {
                 debug.then(|| println!("Converged"));
                 break;
             }
         }
-        print_align.then(|| println!("{:?}\n", self.alnmtx));
         debug.then(|| println!("Final score: {}", max_score));
         max_pwm
     }
 
+    /// Picks a random variable from a normalized list of data using cumulative sum
     fn pick_random_from_normalized(&self, rng: &mut ThreadRng, norm: Vec<f64>) -> usize {
         let mut cumulative_sum = 0.0;
         let roll = rng.random_range(0.0..1.);
@@ -132,6 +135,7 @@ impl<'a> GibbsSampling<'a> {
             .unwrap_or(norm.len() - 1)
     }
 
+    /// Scores the current alignment
     fn score(&self) -> f64 {
         self.pfm
             .iter()
@@ -146,15 +150,18 @@ impl<'a> GibbsSampling<'a> {
             .sum()
     }
 
+    /// Calculates the background probability for each nucleotide
     fn background_probability(&self) -> impl Iterator<Item = f64> + '_ {
         let tot = self.bgf.iter().sum::<usize>() as f64;
         self.bgf.iter().map(move |c| *c as f64 / tot)
     }
 
+    /// Returns the kmer-length being search for
     fn kmer(&self) -> usize {
         self.alnmtx.kmer
     }
 
+    /// Calculates the Position Probability Matrix for the current alignment
     fn position_probability_matrix(&self) -> impl Iterator<Item = Vec<f64>> + '_ {
         let pseudocount = 0.0001;
         let total = self.seqs.len() as f64 + 4. * pseudocount;
@@ -166,6 +173,7 @@ impl<'a> GibbsSampling<'a> {
         })
     }
 
+    /// Calculates the Position Weight Matrix for the current alignment
     fn pwm(&self) -> impl Iterator<Item = Vec<f64>> + '_ {
         self.position_probability_matrix()
             .zip(self.background_probability())

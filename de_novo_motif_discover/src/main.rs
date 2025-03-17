@@ -6,6 +6,43 @@ use de_novo_motif_discover::{
 };
 
 fn main() {
+    let matches = parse_args();
+    let method =
+        Into::<SupportedMethods>::into(matches.get_one::<String>("method").unwrap().as_str());
+    let kmer = *matches.get_one::<usize>("kmer_length").unwrap();
+    let path = matches.get_one::<String>("path").unwrap();
+    let seqlogo = matches.get_flag("seqlogo");
+    let debug = matches.get_flag("debug");
+    let treshold = *matches.get_one::<f64>("treshold").unwrap();
+    let max_iter = *matches.get_one::<usize>("max_iter").unwrap();
+
+    println!("File path: {}", path);
+    println!("Method: {:?}", method);
+    println!("Motif length: {}", kmer);
+    println!("Treshold for convergence: {}", treshold);
+    println!("Maximum number of iterations: {}", max_iter);
+    println!("Generate sequence logo: {}", seqlogo);
+    println!("Debug: {}\n", debug);
+
+    let (seqs, nc) = parse(path);
+    let start = std::time::Instant::now();
+    let pwm = match &method {
+        &SupportedMethods::Gibbs => {
+            GibbsSampling::new(nc, kmer, &seqs).discover_motif(max_iter, treshold, debug)
+        }
+        &SupportedMethods::EM => panic!("not implemented"),
+        _ => panic!("Unsupported method"),
+    };
+    let duration = start.elapsed();
+    println!("Time taken: {:?}", duration);
+
+    if seqlogo {
+        println!("{:?}", pwm);
+        generate_sequence_logo(&pwm, &method);
+    }
+}
+
+fn parse_args() -> clap::ArgMatches {
     let matches = Command::new("Motif Discovery")
         .version("1.0")
         .author("Jarand Romestrand")
@@ -63,48 +100,6 @@ fn main() {
                 .action(clap::ArgAction::SetTrue)
                 .help("Debug when running"),
         )
-        .arg(
-            Arg::new("align")
-                .long("align")
-                .short('a')
-                .action(clap::ArgAction::SetTrue)
-                .help("Print final alignment"),
-        )
         .get_matches();
-
-    let method =
-        Into::<SupportedMethods>::into(matches.get_one::<String>("method").unwrap().as_str());
-    let kmer = *matches.get_one::<usize>("kmer_length").unwrap();
-    let path = matches.get_one::<String>("path").unwrap();
-    let seqlogo = matches.get_flag("seqlogo");
-    let print_align = matches.get_flag("align");
-    let debug = matches.get_flag("debug");
-    let treshold = *matches.get_one::<f64>("treshold").unwrap();
-    let max_iter = *matches.get_one::<usize>("max_iter").unwrap();
-
-    println!("File path: {}", path);
-    println!("Method: {:?}", method);
-    println!("Motif length: {}", kmer);
-    println!("Treshold for convergence: {}", treshold);
-    println!("Maximum number of iterations: {}", max_iter);
-    println!("Generate sequence logo: {}", seqlogo);
-    println!("Print the final alignement: {}", print_align);
-    println!("Debug: {}\n", debug);
-
-    let (seqs, nc) = parse(path);
-    let start = std::time::Instant::now();
-    let pwm = match &method {
-        &SupportedMethods::Gibbs => {
-            GibbsSampling::new(nc, kmer, &seqs).discover(max_iter, treshold, debug, print_align)
-        }
-        &SupportedMethods::EM => panic!("not implemented"),
-        _ => panic!("Unsupported method"),
-    };
-    let duration = start.elapsed();
-    println!("Time taken: {:?}", duration);
-
-    if seqlogo {
-        println!("{:?}", pwm);
-        generate_sequence_logo(&pwm, &method);
-    }
+    matches
 }
