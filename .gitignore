@@ -37,3 +37,6 @@ coverage/
 
 # Results
 *.png
+
+#python virtual environment
+.venv/
