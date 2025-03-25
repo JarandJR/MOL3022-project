@@ -11,30 +11,43 @@ def initialize_pwm(sequences, motif_len):
     pwm = {b: [0.25] * motif_len for b in bases}
     return pwm
 
-def e_step(sequences, pwm, motif_len):
+def e_step(sequences, pwm, background, motif_len):
     Z = []
     for seq in sequences:
         scores = []
-        for i in range(len(seq) - motif_len + 1):
-            window = seq[i:i + motif_len]
-
+        seq_len = len(seq)
+        
+        for start in range(seq_len - motif_len + 1):
+            window = seq[start:start + motif_len]
+            
             if 'N' in window:
                 scores.append(0.0)
                 continue
-
-            prob = 1.0
-
+                
+            # Calculate motif probability
+            motif_prob = 1.0
             for j in range(motif_len):
-                base = window[j]
-                prob *= pwm[base][j]
-            scores.append(prob)
+                base = window[j] # base means the nucleotide at position j in the window
+                motif_prob *= pwm[base][j]
+            
+            # Calculate background probability for non-motif positions
+            bg_prob = 1.0
+            for pos in range(seq_len):
+                if pos < start or pos >= start + motif_len:
+                    base = seq[pos]
+                    if base in background:  # Only multiply if base is in background
+                        bg_prob *= background[base]
+                    # Skip 'N' characters in background calculation
+            
+            # Combine both probabilities
+            scores.append(motif_prob * bg_prob)
+            
         total = sum(scores)
-
         if total == 0:
             Z.append([1.0 / len(scores)] * len(scores))
         else:
             Z.append([score / total for score in scores])
-
+    
     return Z
 
 def m_step(sequences, Z, motif_len, pseudocount=1e-3):
@@ -60,10 +73,11 @@ def run_em(sequences, motif_len, max_iters=100, tol=1e-4):
     pwm = initialize_pwm(sequences, motif_len)
 
     pbar = tqdm(total=max_iters, desc="EM Algorithm")
+    background = {'A': 0.25, 'C': 0.25, 'G': 0.25, 'T': 0.25}
 
     iterations_completed = 0
     for iteration in range(max_iters):
-        Z = e_step(sequences, pwm, motif_len)
+        Z = e_step(sequences, pwm, background, motif_len)
         new_pwm = m_step(sequences, Z, motif_len)
         delta = max(abs(new_pwm[b][j] - pwm[b][j]) for b in 'ACGT' for j in range(motif_len))
         pwm = new_pwm
