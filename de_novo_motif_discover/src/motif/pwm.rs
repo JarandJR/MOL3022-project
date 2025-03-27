@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, ops::Index};
 
 use crate::dna::nucleotide::Nucleotide;
 
@@ -34,5 +34,13 @@ impl Debug for PositionWeightMatrix {
             .enumerate()
             .map(|(nuc, pwm)| write!(f, "{}: {:?}\n", Nucleotide::from(nuc), pwm))
             .collect()
+    }
+}
+
+impl Index<Nucleotide> for PositionWeightMatrix {
+    type Output = Vec<f64>;
+
+    fn index(&self, index: Nucleotide) -> &Self::Output {
+        &self.pwm[Into::<usize>::into(index)]
     }
 }

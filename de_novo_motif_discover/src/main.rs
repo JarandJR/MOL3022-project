@@ -1,7 +1,7 @@
 use clap::{Arg, Command};
 use de_novo_motif_discover::{
     methods::SupportedMethods,
-    motif::{gibbs_sampling::GibbsSampling, seq_logo::generate_sequence_logo},
+    motif::{em, gibbs_sampling::GibbsSampling, seq_logo::generate_sequence_logo},
     parser::parse,
 };
 
@@ -30,7 +30,7 @@ fn main() {
         &SupportedMethods::Gibbs => {
             GibbsSampling::new(nc, kmer, &seqs).discover_motif(max_iter, treshold, debug)
         }
-        &SupportedMethods::EM => panic!("not implemented"),
+        &SupportedMethods::EM => em::discover_motif(&seqs, kmer, max_iter, treshold, debug),
         _ => panic!("Unsupported method"),
     };
     let duration = start.elapsed();
