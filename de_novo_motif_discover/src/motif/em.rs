@@ -15,7 +15,6 @@ pub fn discover_motif(
     treshold: f64,
     debug: bool,
 ) -> PositionWeightMatrix {
-    debug.then(|| println!("Starting motif discovery of length {}...", kmer));
     // Run EM on current sequences
     let (pwm, z) = run_em(seqs, kmer, max_iter, treshold);
     // Extract motif sites for this run

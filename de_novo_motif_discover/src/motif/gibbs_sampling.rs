@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle};
 use rand::{rngs::ThreadRng, Rng};
 
 use crate::{
@@ -52,10 +53,13 @@ impl<'a> GibbsSampling<'a> {
         let mut max_pwm = self.pwm().collect::<Vec<Vec<_>>>().into();
         let mut rng = rand::rng();
 
-        debug.then(|| println!("Start score: {}", max_score));
+        let pb = self.get_progress_bar(max_iterations);
+        pb.set_message(format!(
+            "Gibbs Sampler | score: {:.6}, converged: {}",
+            max_score, false
+        ));
 
-        for it in 0..max_iterations {
-            debug.then(|| println!("\nIteration: {}", it));
+        for _ in 0..max_iterations {
             // Random order of all sequences
             let mut order = (0..self.seqs.len()).collect::<Vec<_>>();
             while !order.is_empty() {
@@ -102,7 +106,12 @@ impl<'a> GibbsSampling<'a> {
                 self.pfm.add_motif(new_motif, 1);
             }
             let new_score = self.score();
-            debug.then(|| println!("Score: {}", new_score));
+            pb.inc(1);
+            pb.set_message(format!(
+                "Gibbs Sampler | score: {:.6}, converged: {}",
+                max_score, false
+            ));
+
             // Update the alignment
             if max_score < new_score {
                 max_score = new_score;
@@ -114,12 +123,29 @@ impl<'a> GibbsSampling<'a> {
             let mean = prev_scores.iter().sum::<f64>() / prev_scores.len() as f64;
             let relative_imp = (max_score - mean).abs() / mean;
             if relative_imp < convergence_treshold {
-                debug.then(|| println!("Converged"));
+                pb.inc(1);
+                pb.set_message(format!(
+                    "Gibbs Sampler | score: {:.6}, converged: {}",
+                    max_score, true
+                ));
                 break;
             }
         }
+        pb.finish();
         debug.then(|| println!("Final score: {}", max_score));
         max_pwm
+    }
+
+    fn get_progress_bar(&self, max_iters: usize) -> ProgressBar {
+        let pb = ProgressBar::new(max_iters as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{msg} [{bar:40}] {pos}/{len} ({eta})")
+                .unwrap()
+                .progress_chars("=> "),
+        );
+        pb.set_message("EM Algorithm");
+        pb
     }
 
     /// Picks a random variable from a normalized list of data using cumulative sum
