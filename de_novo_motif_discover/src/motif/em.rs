@@ -16,9 +16,7 @@ pub fn discover_motif(
     debug: bool,
 ) -> PositionWeightMatrix {
     // Run EM on current sequences
-    let (ppm, z, bp) = run_em(seqs, kmer, max_iter, treshold);
-    // Extract motif sites for this run
-    let sites = extract_motif_sites(seqs, &z, kmer);
+    let (ppm, bp) = run_em(seqs, kmer, max_iter, treshold);
     let ppm = ['A', 'C', 'G', 'T']
         .into_iter()
         .map(|b| ppm.get(&b).unwrap().to_owned())
@@ -32,13 +30,6 @@ pub fn discover_motif(
         println!("\n===== Motif =====");
         println!("Position Weight Matrix:");
         println!("{:?}", pwm);
-
-        // Print sample sites
-        println!("\nDiscovered {} sites for this motif", sites.len());
-        println!("Sample sites:");
-        for (j, site) in sites.iter().take(5).enumerate() {
-            println!("Site {}: {}", j + 1, site);
-        }
         let consensus = generate_consensus_from_pwm(&pwm);
         println!("Consensus sequence: {}", consensus);
     });
@@ -66,7 +57,7 @@ fn run_em(
     motif_len: usize,
     max_iters: usize,
     tol: f64,
-) -> (PPM, Vec<Vec<f64>>, HashMap<char, f64>) {
+) -> (PPM, HashMap<char, f64>) {
     // Initialize
     let mut ppm = initialize_pwm(motif_len);
 
@@ -140,8 +131,7 @@ fn run_em(
         "EM completed after {} iterations with final delta={:.6}",
         iterations_completed, delta
     );
-    let z = e_step(sequences, &ppm, &background, motif_len);
-    (ppm, z, background)
+    (ppm, background)
 }
 
 fn initialize_pwm(motif_len: usize) -> PPM {
@@ -294,26 +284,7 @@ fn m_step(
     (ppm, background)
 }
 
-fn extract_motif_sites(sequences: &[String], z: &[Vec<f64>], motif_len: usize) -> Vec<String> {
-    let mut sites = Vec::new();
-
-    for (seq, probs) in sequences.iter().zip(z.iter()) {
-        if let Some(max_idx) = probs
-            .iter()
-            .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
-        {
-            let start = max_idx.0;
-            if start + motif_len <= seq.len() {
-                sites.push(seq[start..start + motif_len].to_string());
-            }
-        }
-    }
-
-    sites
-}
-
-fn generate_consensus_from_pwm(pwm: &PositionWeightMatrix) -> String {
+pub fn generate_consensus_from_pwm(pwm: &PositionWeightMatrix) -> String {
     let kmer = pwm[Nucleotide::A].len();
     let mut consensus = String::with_capacity(kmer);
 

@@ -6,6 +6,7 @@ use crate::{
         alignment_matrix::AlignmentMatrix, nucleotide::Nucleotide,
         nucleotide_count::NucletideCounts, position_specific_counts::PositionFrequencyMatrix,
     },
+    motif::em::generate_consensus_from_pwm,
     parser::Sequence,
 };
 
@@ -111,7 +112,6 @@ impl<'a> GibbsSampling<'a> {
                 "Gibbs Sampler | score: {:.6}, converged: {}",
                 max_score, false
             ));
-
             // Update the alignment
             if max_score < new_score {
                 max_score = new_score;
@@ -132,7 +132,14 @@ impl<'a> GibbsSampling<'a> {
             }
         }
         pb.finish();
-        debug.then(|| println!("Final score: {}", max_score));
+        debug.then(|| {
+            println!("\n\n===== Motif =====");
+            println!("Final score: {}", max_score);
+            println!("Position Weight Matrix:");
+            println!("{:?}", max_pwm);
+            let consensus = generate_consensus_from_pwm(&max_pwm);
+            println!("Consensus sequence: {}", consensus);
+        });
         max_pwm
     }
 
