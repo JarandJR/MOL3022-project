@@ -6,7 +6,7 @@ use crate::parser::Sequence;
 
 use super::pwm::PositionWeightMatrix;
 
-type PWM = HashMap<char, Vec<f64>>;
+type PPM = HashMap<char, Vec<f64>>;
 
 pub fn discover_motif(
     seqs: &Vec<Sequence>,
@@ -16,14 +16,18 @@ pub fn discover_motif(
     debug: bool,
 ) -> PositionWeightMatrix {
     // Run EM on current sequences
-    let (pwm, z) = run_em(seqs, kmer, max_iter, treshold);
+    let (ppm, z, bp) = run_em(seqs, kmer, max_iter, treshold);
     // Extract motif sites for this run
     let sites = extract_motif_sites(seqs, &z, kmer);
-    let pwm = ['A', 'C', 'G', 'T']
+    let ppm = ['A', 'C', 'G', 'T']
         .into_iter()
-        .map(|b| pwm.get(&b).unwrap().to_owned())
+        .map(|b| ppm.get(&b).unwrap().to_owned())
         .collect::<Vec<Vec<f64>>>();
-    let pwm = pwm.into();
+    let bp = ['A', 'C', 'G', 'T']
+        .into_iter()
+        .map(|b| bp.get(&b).unwrap().to_owned())
+        .collect::<Vec<f64>>();
+    let pwm = ppm_to_pwm(ppm, bp);
     debug.then(|| {
         println!("\n===== Motif =====");
         println!("Position Weight Matrix:");
@@ -41,15 +45,30 @@ pub fn discover_motif(
     pwm
 }
 
+fn ppm_to_pwm(ppm: Vec<Vec<f64>>, bp: Vec<f64>) -> PositionWeightMatrix {
+    ppm.into_iter()
+        .zip(bp)
+        .map(|(probabilities, bgp)| {
+            probabilities
+                .iter()
+                .map(|p| {
+                    let pos_weight = p / bgp;
+                    pos_weight.log2()
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<Vec<f64>>>()
+        .into()
+}
+
 fn run_em(
     sequences: &[String],
     motif_len: usize,
     max_iters: usize,
     tol: f64,
-) -> (PWM, Vec<Vec<f64>>) {
-    // Fix: Return only PWM and Z
+) -> (PPM, Vec<Vec<f64>>, HashMap<char, f64>) {
     // Initialize
-    let mut pwm = initialize_pwm(motif_len);
+    let mut ppm = initialize_pwm(motif_len);
 
     // Initial background
     let mut background = HashMap::new();
@@ -74,17 +93,17 @@ fn run_em(
     for _ in 0..max_iters {
         // Fix: prefix unused variable with _
         // E-step using current PWM and background
-        let z = e_step(sequences, &pwm, &background, motif_len);
+        let z = e_step(sequences, &ppm, &background, motif_len);
 
         // M-step returning updated PWM and background
-        let (new_pwm, new_background) = m_step(sequences, &z, motif_len, 1e-3);
+        let (new_ppm, new_background) = m_step(sequences, &z, motif_len, 1e-3);
 
         // Calculate delta
         delta = 0.0;
         for &base in &['A', 'C', 'G', 'T'] {
             // Check delta for motif PWM
             for j in 0..motif_len {
-                let diff = (new_pwm.get(&base).unwrap()[j] - pwm.get(&base).unwrap()[j]).abs();
+                let diff = (new_ppm.get(&base).unwrap()[j] - ppm.get(&base).unwrap()[j]).abs();
                 if diff > delta {
                     delta = diff;
                 }
@@ -99,7 +118,7 @@ fn run_em(
         }
 
         // Update models
-        pwm = new_pwm;
+        ppm = new_ppm;
         background = new_background;
 
         // Update progress
@@ -121,24 +140,24 @@ fn run_em(
         "EM completed after {} iterations with final delta={:.6}",
         iterations_completed, delta
     );
-    let z = e_step(sequences, &pwm, &background, motif_len);
-    (pwm, z)
+    let z = e_step(sequences, &ppm, &background, motif_len);
+    (ppm, z, background)
 }
 
-fn initialize_pwm(motif_len: usize) -> PWM {
+fn initialize_pwm(motif_len: usize) -> PPM {
     let bases = vec!['A', 'C', 'G', 'T'];
-    let mut pwm = HashMap::new();
+    let mut ppm = HashMap::new();
 
     for &base in &bases {
-        pwm.insert(base, vec![0.25; motif_len]);
+        ppm.insert(base, vec![0.25; motif_len]);
     }
 
-    pwm
+    ppm
 }
 
 fn e_step(
     sequences: &[String],
-    pwm: &PWM,
+    ppm: &PPM,
     background: &HashMap<char, f64>,
     motif_len: usize,
 ) -> Vec<Vec<f64>> {
@@ -159,7 +178,7 @@ fn e_step(
             // Calculate motif probability
             let mut motif_prob = 1.0;
             for (j, base) in window.chars().enumerate() {
-                motif_prob *= pwm.get(&base).map_or(0.0, |probs| probs[j]);
+                motif_prob *= ppm.get(&base).map_or(0.0, |probs| probs[j]);
             }
 
             // Calculate background probability for non-motif positions
@@ -194,11 +213,11 @@ fn m_step(
     z: &[Vec<f64>],
     motif_len: usize,
     pseudocount: f64,
-) -> (PWM, HashMap<char, f64>) {
+) -> (PPM, HashMap<char, f64>) {
     // Initialize PWM for the motif
-    let mut pwm: PWM = HashMap::new();
+    let mut ppm: PPM = HashMap::new();
     for &base in &['A', 'C', 'G', 'T'] {
-        pwm.insert(base, vec![pseudocount; motif_len]);
+        ppm.insert(base, vec![pseudocount; motif_len]);
     }
 
     // Initialize background counts
@@ -226,7 +245,7 @@ fn m_step(
 
             // Update motif counts
             for (j, base) in window.chars().enumerate() {
-                if let Some(counts) = pwm.get_mut(&base) {
+                if let Some(counts) = ppm.get_mut(&base) {
                     counts[j] += weight;
                 }
             }
@@ -256,11 +275,11 @@ fn m_step(
     for j in 0..motif_len {
         let col_sum: f64 = ['A', 'C', 'G', 'T']
             .iter()
-            .map(|&b| pwm.get(&b).map_or(0.0, |counts| counts[j]))
+            .map(|&b| ppm.get(&b).map_or(0.0, |counts| counts[j]))
             .sum();
 
         for &base in &['A', 'C', 'G', 'T'] {
-            if let Some(counts) = pwm.get_mut(&base) {
+            if let Some(counts) = ppm.get_mut(&base) {
                 counts[j] /= col_sum;
             }
         }
@@ -272,7 +291,7 @@ fn m_step(
         background.insert(base, *bg_counts.get(&base).unwrap() / total_bg_positions);
     }
 
-    (pwm, background)
+    (ppm, background)
 }
 
 fn extract_motif_sites(sequences: &[String], z: &[Vec<f64>], motif_len: usize) -> Vec<String> {

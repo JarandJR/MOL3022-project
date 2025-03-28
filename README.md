@@ -90,7 +90,7 @@ Breakdown:
 - `-p` ../data/CREB1_K562_ChIPseq_79_544.fasta: Path to the sequence data file.
 - `-k` 10: Length of the motif to discover (10).
 - `-l`: Generate a sequence logo.
-- `-t` 0.001: Threshold for convergence (0.001).
+- `-t` 0.01: Threshold for convergence (0.01).
 - `-i` 200: Maximum iterations (200).
 - `-d`: Enable debug mode.
 
