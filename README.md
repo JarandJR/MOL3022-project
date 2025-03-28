@@ -128,7 +128,7 @@ cargo run --release -- -h
 This will show the help information, including all options and their descriptions.
 
 ### 5. Run program using pyhton enviroment to generate logo
-Some python dependecies are needed to generate the logo. You can opt for a virtual environment if you don't want theses dependecies globally on your system. To do that checkout the branch `python-env` and make the python environment inside `de_novo_motif_discover` folder. Then activate the environment and install the dependecies using the following commands:
+Some python dependecies are needed to generate the logo. You can opt for a virtual environment if you don't want theses dependecies globally on your system. To do that checkout the branch `python-env` and make the python environment inside `de_novo_motif_discover` folder called `.env`. Then activate the environment to install the dependecies using the following command:
 
 ```bash
 pip install -r requirements.txt
