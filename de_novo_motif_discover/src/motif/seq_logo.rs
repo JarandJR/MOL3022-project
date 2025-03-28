@@ -7,10 +7,11 @@ use super::pwm::PositionWeightMatrix;
 pub fn generate_sequence_logo(pwm: &PositionWeightMatrix, method: &SupportedMethods) {
     println!("Generating Sequence logo..");
     let pwm_json = pwm.as_json();
-    let output = Command::new("python")
-        .arg("src/motif/plot_logo.py")
-        .arg(pwm_json)
-        .arg((format!("{:?}", method)).replace(' ', "_").to_lowercase())
+    let output = Command::new("bash")  // Changed from "sh" to "bash"
+        .arg("-c")
+        .arg(format!(". .env/bin/activate && python src/motif/plot_logo.py '{}' '{}'", 
+                     pwm_json, 
+                     (format!("{:?}", method)).replace(' ', "_").to_lowercase()))
         .output()
         .expect("Failed to execute Python script");
 
