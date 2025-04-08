@@ -79,8 +79,7 @@ fn run_em(
     pb.set_message("EM Algorithm");
 
     let mut iterations_completed = 0;
-    let mut delta = 0.0;
-
+    let mut delta = 0.0_f64;
     for _ in 0..max_iters {
         // Fix: prefix unused variable with _
         // E-step using current PWM and background
@@ -90,22 +89,17 @@ fn run_em(
         let (new_ppm, new_background) = m_step(sequences, &z, motif_len, 1e-3);
 
         // Calculate delta
-        delta = 0.0;
+        delta = 0.0_f64;
         for &base in &['A', 'C', 'G', 'T'] {
             // Check delta for motif PWM
             for j in 0..motif_len {
                 let diff = (new_ppm.get(&base).unwrap()[j] - ppm.get(&base).unwrap()[j]).abs();
-                if diff > delta {
-                    delta = diff;
-                }
+                delta = delta.max(diff);
             }
-
             // Check delta for background
             let bg_diff =
                 (new_background.get(&base).unwrap() - background.get(&base).unwrap()).abs();
-            if bg_diff > delta {
-                delta = bg_diff;
-            }
+            delta = delta.max(bg_diff);
         }
 
         // Update models

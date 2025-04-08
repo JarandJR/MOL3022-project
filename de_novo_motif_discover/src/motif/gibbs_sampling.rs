@@ -49,16 +49,13 @@ impl<'a> GibbsSampling<'a> {
         convergence_treshold: f64,
         debug: bool,
     ) -> PositionWeightMatrix {
-        let mut max_score = self.score();
-        let mut prev_scores = Vec::new();
-        let mut max_pwm = self.pwm().collect::<Vec<Vec<_>>>().into();
         let mut rng = rand::rng();
+        let mut max_score = self.score();
+        let mut prev_rel_improvements = Vec::new();
+        let mut max_pwm = self.pwm().collect::<Vec<Vec<_>>>().into();
 
         let pb = self.get_progress_bar(max_iterations);
-        pb.set_message(format!(
-            "Gibbs Sampler | score: {:.6}, converged: {}",
-            max_score, false
-        ));
+        pb.set_message(format!("Gibbs Sampler | score: {:.6}", max_score));
 
         for _ in 0..max_iterations {
             // Random order of all sequences
@@ -108,25 +105,32 @@ impl<'a> GibbsSampling<'a> {
             }
             let new_score = self.score();
             pb.inc(1);
-            pb.set_message(format!(
-                "Gibbs Sampler | score: {:.6}, converged: {}",
-                max_score, false
-            ));
             // Update the alignment
             if max_score < new_score {
                 max_score = new_score;
                 max_pwm = self.pwm().collect::<Vec<Vec<_>>>().into();
+                pb.set_message(format!(
+                    "Gibbs Sampler | max: {:.2} score: {:.2}, converged: ",
+                    max_score, new_score
+                ));
                 continue;
             }
+            // Relative improvement with decay
+            let decay = (prev_rel_improvements.len() + 1) as f64;
+            prev_rel_improvements.push((max_score - new_score) / (max_score * decay));
+            let mean_relative_imp =
+                prev_rel_improvements.iter().sum::<f64>() / prev_rel_improvements.len() as f64;
+            let mean_relative_imp = mean_relative_imp.abs();
+            pb.set_message(format!(
+                "Gibbs Sampler | max: {:.2} score: {:.2}, converged: {:.4}",
+                max_score, new_score, mean_relative_imp
+            ));
             // Check for convergence
-            prev_scores.push(new_score);
-            let mean = prev_scores.iter().sum::<f64>() / prev_scores.len() as f64;
-            let relative_imp = (max_score - mean).abs() / mean;
-            if relative_imp < convergence_treshold {
+            if mean_relative_imp < convergence_treshold {
                 pb.inc(1);
                 pb.set_message(format!(
-                    "Gibbs Sampler | score: {:.6}, converged: {}",
-                    max_score, true
+                    "Gibbs Sampler | max: {:.2} score: {:.2}, converged: {:.4}",
+                    max_score, new_score, mean_relative_imp
                 ));
                 break;
             }
